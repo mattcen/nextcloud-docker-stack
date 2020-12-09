@@ -1,28 +1,49 @@
 #!/bin/bash
 
-bucket=nextcloud
-key=$(cat secrets/minio_access_key.txt)
-secret=$(cat secrets/minio_secret_key.txt)
-hostname=storage
-port=9000
+NEXTCLOUD_CFG_SYSTEM_objectstore_class="\\OC\\Files\\ObjectStore\\S3"
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_bucket=nextcloud
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_autocreate=true
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_key=$(cat secrets/minio_access_key.txt)
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_secret=$(cat secrets/minio_secret_key.txt)
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_hostname=storage
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_port=9000
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_use__ssl=false
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_use__path__style=true
+NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_legacy__auth=true
 
-docker-compose exec -T -u 33 app ./occ config:import <<EOF
-{
-    "system": {
-        "objectstore": {
-            "class": "\\\\OC\\\\Files\\\\ObjectStore\\\\S3",
-            "arguments": {
-                "bucket": "$bucket",
-                "autocreate": true,
-                "key": "$key",
-                "secret": "$secret",
-                "hostname": "$hostname",
-                "port": $port,
-                "use_ssl": false,
-                "use_path_style": true,
-                "legacy_auth": true
-            }
-        }
-    }
-}
-EOF
+# Search through environment variables for NextCloud config items.  Variable
+# names should be in the form of $NEXTCLOUD_CFG_SYSTEM_var_name_here where
+# 'var_name_here' the variable name as required by `occ config:system:set`, (See
+# https://docs.nextcloud.com/server/stable/admin_manual/configuration_server/occ_command.html#config-commands)
+# in the correct (upper/lower) case, with underscores ('_') represented by
+# double-underscores ('__'), and spaces (' ') represented by single underscores
+# ('_'). E.g. NEXTCLOUD_CFG_SYSTEM_foo_Bar__BAZ translates to 'foo Bar_BAZ'
+
+# Find env vars that specify NextCloud config items
+for envvar in ${!NEXTCLOUD_CFG_@};
+do
+  # Store value of parameter, and convert its key into a format suitable for
+  # `./occ config:system:set`, storing it in an array.
+  value=${!envvar}
+  param=${envvar#NEXTCLOUD_CFG_SYSTEM_}
+  param=${param//__/|}
+  param=${param//_/ }
+  param=${param//|/_}
+  param=($param)
+
+  # Detect parameter type automatically based on its value
+  if [[ $value =~ ^[[:digit:]]*$ ]]
+  then
+    ptype=integer
+  elif [[ $value =~ ^[[:digit:].]*$ ]]
+  then
+    ptype=float
+  elif [[ $value = true ]] || [[ $value = false ]]
+  then
+    ptype=boolean
+  else
+    ptype=string
+  fi
+
+  docker-compose exec -T -u 33 app ./occ config:system:set "${param[@]}" --type "$ptype" --value "$value"
+done
