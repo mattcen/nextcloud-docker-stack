@@ -20,3 +20,6 @@ docker-compose up -d
 # Wait for the server to be up and running. Check this with `docker-compose logs app | grep installed`
 # Once the server is up and running, run this to point it at the object store
 ./nextcloud-s3-config.sh
+```
+
+Browse to http://localhost:8000, log in with the credentials stored in `secrets/nextcloud_admin_user.txt` and `secrets/nextcloud_admin_password.txt`, and you're good to go!
