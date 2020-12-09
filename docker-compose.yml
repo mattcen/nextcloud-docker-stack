@@ -1,0 +1,83 @@
+version: '3.2'
+
+volumes:
+  nextcloud:
+  db:
+  storage:
+
+services:
+  db:
+    image: postgres
+    restart: always
+    volumes:
+      - db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB_FILE=/run/secrets/postgres_db
+      - POSTGRES_USER_FILE=/run/secrets/postgres_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+    secrets:
+      - postgres_db
+      - postgres_password
+      - postgres_user
+
+  web:
+    image: nginx
+    ports:
+      - 8080:80
+    links:
+      - app
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    volumes_from:
+      - app
+    restart: always
+
+  app:
+    image: nextcloud:fpm
+    restart: always
+    volumes:
+      - nextcloud:/var/www/html
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB_FILE=/run/secrets/postgres_db
+      - POSTGRES_USER_FILE=/run/secrets/postgres_user
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+      - NEXTCLOUD_ADMIN_PASSWORD_FILE=/run/secrets/nextcloud_admin_password
+      - NEXTCLOUD_ADMIN_USER_FILE=/run/secrets/nextcloud_admin_user
+    depends_on:
+      - db
+    secrets:
+      - nextcloud_admin_password
+      - nextcloud_admin_user
+      - postgres_db
+      - postgres_password
+      - postgres_user
+
+  storage:
+    image: minio/minio
+    restart: always
+    command: server /data
+    volumes:
+      - storage:/data
+    environment:
+      - MINIO_ACCESS_KEY_FILE=/run/secrets/minio_access_key
+      - MINIO_SECRET_KEY_FILE=/run/secrets/minio_secret_key
+    secrets:
+      - minio_access_key
+      - minio_secret_key
+
+secrets:
+  nextcloud_admin_password:
+    file: ./secrets/nextcloud_admin_password.txt # put admin password to this file
+  nextcloud_admin_user:
+    file: ./secrets/nextcloud_admin_user.txt # put admin username to this file
+  postgres_db:
+    file: ./secrets/postgres_db.txt # put postgresql db name to this file
+  postgres_password:
+    file: ./secrets/postgres_password.txt # put postgresql password to this file
+  postgres_user:
+    file: ./secrets/postgres_user.txt # put postgresql username to this file
+  minio_access_key:
+    file: ./secrets/minio_access_key.txt
+  minio_secret_key:
+    file: ./secrets/minio_secret_key.txt
