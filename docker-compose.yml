@@ -33,10 +33,11 @@ services:
     restart: always
 
   app:
-    image: nextcloud:fpm
+    image: nextcloud:20-fpm
     restart: always
     volumes:
       - nextcloud:/var/www/html
+      - ./entrypoint.sh:/entrypoint.sh:ro
     environment:
       - POSTGRES_HOST=db
       - POSTGRES_DB_FILE=/run/secrets/postgres_db
@@ -44,6 +45,16 @@ services:
       - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
       - NEXTCLOUD_ADMIN_PASSWORD_FILE=/run/secrets/nextcloud_admin_password
       - NEXTCLOUD_ADMIN_USER_FILE=/run/secrets/nextcloud_admin_user
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_class="\\OC\\Files\\ObjectStore\\S3"
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_bucket=nextcloud
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_autocreate=true
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_key_FILE=/run/secrets/minio_access_key
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_secret_FILE=/run/secrets/minio_secret_key
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_hostname=storage
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_port=9000
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_use__ssl=false
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_use__path__style=true
+      - NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_legacy__auth=true
     depends_on:
       - db
     secrets:
@@ -52,6 +63,8 @@ services:
       - postgres_db
       - postgres_password
       - postgres_user
+      - minio_access_key
+      - minio_secret_key
 
   storage:
     image: minio/minio

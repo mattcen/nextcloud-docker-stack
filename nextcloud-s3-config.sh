@@ -1,17 +1,6 @@
 #!/bin/sh
 
-NEXTCLOUD_CFG_SYSTEM_objectstore_class="\\OC\\Files\\ObjectStore\\S3"
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_bucket=nextcloud
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_autocreate=true
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_key=$(cat secrets/minio_access_key.txt)
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_secret=$(cat secrets/minio_secret_key.txt)
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_hostname=storage
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_port=9000
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_use__ssl=false
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_use__path__style=true
-NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_legacy__auth=true
-
-
+set_config_from_env() {
 # Search through environment variables for NextCloud config items.  Variable
 # names should be in the form of $NEXTCLOUD_CFG_SYSTEM_var_name_here where
 # 'var_name_here' the variable name as required by `occ config:system:set`, (See
@@ -21,8 +10,10 @@ NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_legacy__auth=true
 # ('_'). E.g. NEXTCLOUD_CFG_SYSTEM_foo_Bar__BAZ translates to 'foo Bar_BAZ'
 
 # Find env vars that specify NextCloud config items
-set | grep ^NEXTCLOUD_CFG_ | while read -r envvar
+env | grep ^NEXTCLOUD_CFG_SYSTEM_ | while read -r envvar
 do
+  echo "${envvar%=*}" | grep -q '_FILE$' && echo "Look! A File! $envvar"
+
   # Store value of parameter, and convert its key into a format suitable for
   # `./occ config:system:set`.
   value=${envvar#*=}
@@ -44,6 +35,11 @@ do
     ptype=string
   fi
 
-  # shellcheck disable=SC2086
-  echo docker-compose exec -T -u 33 app ./occ config:system:set $param --type "$ptype" --value "$value"
+  run_as "php /var/www/html/occ config:system:set $param --type $ptype --value \"$value\""
 done
+}
+
+file_env NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_key
+file_env NEXTCLOUD_CFG_SYSTEM_objectstore_arguments_secret
+
+set_config_from_env
