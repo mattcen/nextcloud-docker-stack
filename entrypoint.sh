@@ -78,7 +78,7 @@ do
     ptype=string
   fi
 
-  run_as "php /var/www/html/occ config:system:set $param --type $ptype --value \"$value\""
+  run_as "php /var/www/html/occ config:system:set $param --type $ptype --value \"$value\"" | sed "s/ set to string .*/ set to string ***REMOVED SENSITIVE VALUE***/g"
 done
 }
 
